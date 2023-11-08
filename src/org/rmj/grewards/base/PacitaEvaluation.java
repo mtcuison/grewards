@@ -166,6 +166,7 @@ public class PacitaEvaluation {
         p_oRecord.populate(loRS);
         MiscUtil.close(loRS);
         
+        
 //        p_nEditMode = EditMode.READY;
         return true;
     }
