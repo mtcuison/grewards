@@ -249,13 +249,13 @@ public class EvaluationDetailed {
             lsCondition = lsCondition + " AND a.dTransact BETWEEN " + SQLUtil.toSQL(fsDateTo) + " AND " + SQLUtil.toSQL(fsDateFrom);
         }
         if (p_oBranchArea != null) {
-            lsCondition = lsCondition + " AND g.sAreaCode LIKE " + SQLUtil.toSQL(getBranchArea("sAreaCode") + "%");
+            lsCondition = lsCondition + " AND g.sAreaCode = " + SQLUtil.toSQL(getBranchArea("sAreaCode"));
         }
         if (p_oBranch != null) {
-            lsCondition = lsCondition + " AND a.sBranchCD LIKE " + SQLUtil.toSQL(getBranch("sBranchCd") + "%");
+            lsCondition = lsCondition + " AND a.sBranchCD = " + SQLUtil.toSQL(getBranch("sBranchCd"));
         }
         if (p_oEmployee != null) {
-            lsCondition = lsCondition + " AND c.sEmployID LIKE " + SQLUtil.toSQL(getOfficer("sEmployID") + "%");
+            lsCondition = lsCondition + " AND c.sEmployID = " + SQLUtil.toSQL(getOfficer("sEmployID") );
         }
         lsSQL = lsSQL + lsCondition + " ORDER BY a.dTransact DESC";
 
@@ -264,6 +264,8 @@ public class EvaluationDetailed {
         p_oRecord = factory.createCachedRowSet();
         p_oRecord.populate(loRS);
         MiscUtil.close(loRS);
+        
+       
 
         p_nEditMode = EditMode.READY;
         return true;
