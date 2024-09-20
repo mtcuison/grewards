@@ -3,28 +3,24 @@ package org.rmj.grewards.report;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Types;
-import java.text.ParseException;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import javax.sql.rowset.CachedRowSet;
 import javax.sql.rowset.RowSetFactory;
 import javax.sql.rowset.RowSetProvider;
 import org.rmj.appdriver.GRider;
 import org.rmj.appdriver.MiscUtil;
 import org.rmj.appdriver.SQLUtil;
-import org.rmj.appdriver.agentfx.CommonUtils;
 import org.rmj.appdriver.agentfx.ui.showFXDialog;
 import org.rmj.appdriver.constants.EditMode;
-import org.rmj.grewards.base.LMasDetTrans;
 import org.json.simple.JSONObject;
 
 /**
  *
  * @author Maynard
  */
-public class EvaluationTop10 {
+public class EvaluationDetailedRules {
 
     private final String MASTER_TABLE = "Pacita_Evaluation";
+   private final String PACITA_RULE_TABLE = "Pacita_Rule"; 
     private final GRider p_oApp;
     private final boolean p_bWithParent;
     private String p_sBranchCd;
@@ -34,11 +30,13 @@ public class EvaluationTop10 {
     private boolean p_bWithUI = true;
 
     private CachedRowSet p_oRecord;
-    private CachedRowSet p_oBranchArea;
     private CachedRowSet p_oBranch;
+    private CachedRowSet p_oBranchArea;
     private CachedRowSet p_oEmployee;
+    private CachedRowSet p_oPacita;
+    private CachedRowSet p_oPacitachild;
 
-    public EvaluationTop10(GRider foApp, String fsBranchCd, boolean fbWithParent) {
+    public EvaluationDetailedRules(GRider foApp, String fsBranchCd, boolean fbWithParent) {
         p_oApp = foApp;
         p_sBranchCd = fsBranchCd;
         p_bWithParent = fbWithParent;
@@ -170,7 +168,47 @@ public class EvaluationTop10 {
     public void setOfficer() {
         p_oEmployee = null;
     }
-
+    public int getPacitaItemCount() throws SQLException{
+        if (p_oPacita == null) return 0;
+        
+        p_oPacita.last();
+        return p_oPacita.getRow();
+    }
+    
+    public Object getPacita(int fnRow, int fnIndex) throws SQLException{
+        if (getPacitaItemCount()  == 0) return null;
+        
+        if (getPacitaItemCount() == 0 || fnRow > getPacitaItemCount()) return null;   
+       
+        p_oPacita.absolute(fnRow);
+        return p_oPacita.getObject(fnIndex);
+        
+    }
+    
+    public Object getPacita(int fnRow, String fsIndex) throws SQLException{
+        return getPacita(fnRow, getColumnIndex(p_oPacita, fsIndex));
+    }
+         
+    public int getPacitaChildItemCount() throws SQLException{
+        if (p_oPacitachild == null) return 0;
+        
+        p_oPacitachild.last();
+        return p_oPacitachild.getRow();
+    }
+    
+    public Object getPacitaChild(int fnRow, int fnIndex) throws SQLException{
+        if (getPacitaChildItemCount()  == 0) return null;
+        
+        if (getPacitaChildItemCount() == 0 || fnRow > getPacitaChildItemCount()) return null;   
+       
+        p_oPacitachild.absolute(fnRow);
+        return p_oPacitachild.getObject(fnIndex);
+        
+    }
+    
+    public Object getPacitaChild(int fnRow, String fsIndex) throws SQLException{
+        return getPacitaChild(fnRow, getColumnIndex(p_oPacitachild, fsIndex));
+    }
     public void displayDetFields() throws SQLException {
         int lnRow = p_oRecord.getMetaData().getColumnCount();
 
@@ -211,8 +249,6 @@ public class EvaluationTop10 {
                 + " , a.dModified dModified "
                 + " , g.sAreaDesc AreaDesc "
                 + ", h.sDeptName sDeptName "
-                + ", AVG(a.nRatingxx) xRating "
-                + ", COUNT(a.sBranchCD) xBranchCount "
                 + " FROM " + MASTER_TABLE + " a "
                 + " LEFT JOIN App_User_Master b "
                 + " ON a.sUserIDxx = b.sUserIDxx "
@@ -246,8 +282,7 @@ public class EvaluationTop10 {
         String lsCondition = "";
         ResultSet loRS;
         RowSetFactory factory = RowSetProvider.newFactory();
-//        
-//     
+
         if (!fsDateTo.isEmpty() || !fsDateFrom.isEmpty()) {
             lsCondition = lsCondition + " AND a.dTransact BETWEEN " + SQLUtil.toSQL(fsDateTo) + " AND " + SQLUtil.toSQL(fsDateFrom);
         }
@@ -255,12 +290,12 @@ public class EvaluationTop10 {
             lsCondition = lsCondition + " AND g.sAreaCode = " + SQLUtil.toSQL(getBranchArea("sAreaCode"));
         }
         if (p_oBranch != null) {
-            lsCondition = lsCondition + " AND a.sBranchCD = " + SQLUtil.toSQL(getBranch("sBranchCd"));
+            lsCondition = lsCondition + " AND a.sBranchCD = " + SQLUtil.toSQL(getBranch("sBranchCd") );
         }
         if (p_oEmployee != null) {
             lsCondition = lsCondition + " AND c.sEmployID = " + SQLUtil.toSQL(getOfficer("sEmployID"));
         }
-        lsSQL = lsSQL + lsCondition + " GROUP BY a.sBranchCD ORDER BY xRating DESC LIMIT 10";
+        lsSQL = lsSQL + lsCondition + " ORDER BY a.dTransact DESC";
 
         System.out.println(lsSQL);
         loRS = p_oApp.executeQuery(lsSQL);
@@ -268,6 +303,91 @@ public class EvaluationTop10 {
         p_oRecord.populate(loRS);
         MiscUtil.close(loRS);
 
+        p_nEditMode = EditMode.READY;
+        return true;
+    }
+    
+     public String getSQ_Pacita(){
+        String lsSQL;
+        
+        lsSQL = "SELECT " +
+                    "  sEvalType " +
+                    ", nEntryNox " +	
+                    ", sFieldNmx " +
+                    ", nMaxValue " +	
+                    ", cParentxx " +
+                    ", sModified " +
+                    ", dModified " +
+                    ", dTimeStmp " +                    
+                " FROM " + PACITA_RULE_TABLE  ;
+        return lsSQL;
+    }
+    
+        public boolean LoadPacita(String fsEvalType) throws SQLException{
+        if (p_oApp == null){
+            p_sMessage = "Application driver is not set.";
+            return false;
+        }
+        
+        p_sMessage = "";    
+        String lsSQL = getSQ_Pacita()+ " WHERE sEvalType = "  + SQLUtil.toSQL(fsEvalType) +
+                " AND cParentxx = 0 " +
+                " UNION" +
+                " SELECT " +
+                  " sEvalType " + 
+                  " , nEntryNox " +
+                  " , sFieldNmx " +
+                  " , nMaxValue " +
+                  " , cParentxx " +
+                  " , sModified " +
+                  " , dModified " +
+                  " , dTimeStmp " +
+                  " FROM " + PACITA_RULE_TABLE + " WHERE " +
+                  " sEvalType = " + SQLUtil.toSQL(fsEvalType) +
+                  " AND cParentxx > 0 GROUP BY cParentxx  ORDER BY nEntryNox";
+        
+        ResultSet loRS = p_oApp.executeQuery(lsSQL);
+        
+        RowSetFactory factory = RowSetProvider.newFactory();
+        p_oPacita = factory.createCachedRowSet();
+        
+        if (MiscUtil.RecordCount(loRS) == 0){
+            MiscUtil.close(loRS);
+            p_sMessage = "No record found for the given criteria.";
+            return false;
+        }
+        
+        p_oPacita.populate(loRS);
+        MiscUtil.close(loRS);
+        
+        p_nEditMode = EditMode.READY;
+        return true;
+    }
+    
+        public boolean LoadPacitaChild(String fsEvalType, String fcParentxx) throws SQLException{
+        if (p_oApp == null){
+            p_sMessage = "Application driver is not set.";
+            return false;
+        }
+        
+        p_sMessage = "";    
+        String lsSQL = getSQ_Pacita()+ " WHERE sEvalType = " + SQLUtil.toSQL(fsEvalType) +
+                " AND cParentxx = " +SQLUtil.toSQL(fcParentxx) ; 
+        
+        ResultSet loRS = p_oApp.executeQuery(lsSQL);
+        
+        RowSetFactory factory = RowSetProvider.newFactory();
+        p_oPacitachild = factory.createCachedRowSet();
+        
+        if (MiscUtil.RecordCount(loRS) == 0){
+            MiscUtil.close(loRS);
+            p_sMessage = "No record found for the given criteria.";
+            return false;
+        }
+        
+        p_oPacitachild.populate(loRS);
+        MiscUtil.close(loRS);
+        
         p_nEditMode = EditMode.READY;
         return true;
     }
